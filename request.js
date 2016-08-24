@@ -530,19 +530,29 @@ Request.prototype.init = function (options) {
 
     var end = function () {
       if (self._form) {
-        if (!self._auth.hasAuth) {
-          self._form.pipe(self)
-        }
-        else if (self._auth.hasAuth && self._auth.sentAuth) {
-          self._form.pipe(self)
+        const needsToAuth = self._auth.hasAuth && !self._auth.sentAuth;
+        if (!needsToAuth) {
+          if (self.streamTransform) {
+            self._form.pipe(self.streamTransform).pipe(self)
+          } else {
+            self._form.pipe(self)
+          }
         }
       }
       if (self._multipart && self._multipart.chunked) {
-        self._multipart.body.pipe(self)
+          if (self.streamTransform) {
+              self._multipart.body.pipe(self.streamTransform).pipe(self)
+          } else {
+              self._multipart.body.pipe(self)
+          }
       }
       if (self.body) {
         if (isstream(self.body)) {
-          self.body.pipe(self)
+          if (self.streamTransform) {
+            self.body.pipe(self.streamTransform).pipe(self)
+          } else {
+            self.body.pipe(self)
+          }
         } else {
           setContentLength()
           if (Array.isArray(self.body)) {
@@ -556,7 +566,11 @@ Request.prototype.init = function (options) {
         }
       } else if (self.requestBodyStream) {
         console.warn('options.requestBodyStream is deprecated, please pass the request object to stream.pipe.')
-        self.requestBodyStream.pipe(self)
+        if (self.streamTransform) {
+          self.requestBodyStream.pipe(self.streamTransform).pipe(self)
+        } else {
+          self.requestBodyStream.pipe(self)
+        }
       } else if (!self.src) {
         if (self._auth.hasAuth && !self._auth.sentAuth) {
           self.end()
